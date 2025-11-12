@@ -1,87 +1,135 @@
 'use strict';
 
-// Uncomment the next lines to use your game instance in the browser
-// const Game = require('../modules/Game.class');
 const Game = require('../modules/Game.class');
 
 const game = new Game();
+let isAnimating = false;
+let startX = 0;
+let startY = 0;
+let endX = 0;
+let endY = 0;
+const SWIPE_THRESHOLD = 30;
 
 const cells = document.querySelectorAll('.field-cell');
-const start = document.querySelector('.button.start');
-const score = document.querySelector('.game-score');
+const startBtn = document.querySelector('.button.start');
+const scoreEl = document.querySelector('.game-score');
+const bestScoreEl = document.querySelector('.best-score');
 const messageLose = document.querySelector('.message-lose');
 const messageWin = document.querySelector('.message-win');
 const messageStart = document.querySelector('.message-start');
+const boardEl = document.querySelector('.game-field');
 
-function showMessage(gameStatus) {
-  if (gameStatus === 'win') {
-    messageWin.classList.remove('hidden');
-  }
+function updateStartButton() {
+  startBtn.classList.remove('start');
+  startBtn.classList.add('restart');
+  startBtn.textContent = 'Restart';
+  messageStart.classList.add('hidden');
+}
 
-  if (gameStatus === 'lose') {
-    messageLose.classList.remove('hidden');
-  }
+function hideMessages() {
+  messageWin.classList.add('hidden');
+  messageLose.classList.add('hidden');
+}
+
+function showGameStatus() {
+  const status = game.getStatus();
+
+  if (status === 'win') messageWin.classList.remove('hidden');
+  if (status === 'lose') messageLose.classList.remove('hidden');
 }
 
 function render() {
   const board = game.getState();
 
-  for (let i = 0; i < board.length; i++) {
-    for (let j = 0; j < board[i].length; j++) {
+  board.forEach((row, i) => {
+    row.forEach((value, j) => {
       const index = i * 4 + j;
       const cell = cells[index];
-      const value = board[i][j];
 
-      cell.textContent = value === 0 ? '' : value;
+      cell.textContent = value || '';
       cell.className = 'field-cell';
+      if (value) cell.classList.add(`field-cell--${value}`);
+    });
+  });
 
-      if (value !== 0) {
-        cell.classList.add(`field-cell--${value}`);
-      }
-    }
-  }
+  scoreEl.textContent = game.getScore();
+  bestScoreEl.textContent = game.getHighscore();
 
-  score.textContent = game.getScore();
-  messageWin.classList.add('hidden');
-  messageLose.classList.add('hidden');
-  showMessage(game.getStatus());
+  hideMessages();
+  showGameStatus();
 }
 
-function updateStartButton() {
-  start.classList.remove('start');
-  start.classList.add('restart');
-  start.textContent = 'Restart';
-  messageStart.classList.add('hidden');
-}
+document.addEventListener('keydown', (e) => {
+  if (isAnimating) return;
+  isAnimating = true;
+  setTimeout(() => (isAnimating = false), 100);
 
-start.addEventListener('click', () => {
   updateStartButton();
-  game.start();
+  if (['win', 'lose'].includes(game.getStatus())) return;
+
+  const actions = {
+    ArrowLeft: () => game.moveLeft(),
+    ArrowRight: () => game.moveRight(),
+    ArrowUp: () => game.moveUp(),
+    ArrowDown: () => game.moveDown(),
+  };
+
+  const action = actions[e.key];
+  if (!action) return;
+
+  action();
   render();
 });
 
-document.addEventListener('keydown', (e) => {
+function handleSwipe(dx, dy) {
   updateStartButton();
+  if (['win', 'lose'].includes(game.getStatus())) return;
 
-  if (['win', 'lose'].includes(game.getStatus())) {
-    return;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx > SWIPE_THRESHOLD) game.moveRight();
+    else if (dx < -SWIPE_THRESHOLD) game.moveLeft();
+  } else {
+    if (dy > SWIPE_THRESHOLD) game.moveDown();
+    else if (dy < -SWIPE_THRESHOLD) game.moveUp();
   }
 
-  switch (e.key) {
-    case 'ArrowLeft':
-      game.moveLeft();
-      break;
-    case 'ArrowRight':
-      game.moveRight();
-      break;
-    case 'ArrowUp':
-      game.moveUp();
-      break;
-    case 'ArrowDown':
-      game.moveDown();
-      break;
-  }
+  render();
+}
 
+// Touch
+boardEl.addEventListener('touchstart', (e) => {
+  const touch = e.touches[0];
+  startX = touch.clientX;
+  startY = touch.clientY;
+});
+
+boardEl.addEventListener('touchend', (e) => {
+  const touch = e.changedTouches[0];
+  endX = touch.clientX;
+  endY = touch.clientY;
+  handleSwipe(endX - startX, endY - startY);
+});
+
+// Mouse
+let isMouseDown = false;
+
+boardEl.addEventListener('mousedown', (e) => {
+  isMouseDown = true;
+  startX = e.clientX;
+  startY = e.clientY;
+});
+
+boardEl.addEventListener('mouseup', (e) => {
+  if (!isMouseDown) return;
+  isMouseDown = false;
+  endX = e.clientX;
+  endY = e.clientY;
+  handleSwipe(endX - startX, endY - startY);
+});
+
+startBtn.addEventListener('click', () => {
+  updateStartButton();
+  game.start();
   render();
 });
 

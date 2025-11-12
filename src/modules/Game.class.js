@@ -23,6 +23,7 @@ class Game {
   constructor(initialState) {
     this.score = 0;
     this.status = 'playing';
+    this.highscore = Number(localStorage.getItem('highscore')) || 0;
 
     if (initialState) {
       this.board = initialState.map((row) => row.slice());
@@ -31,6 +32,12 @@ class Game {
     }
   }
 
+  _updateHighscore() {
+    if (this.score > this.highscore) {
+      this.highscore = this.score;
+      localStorage.setItem('highscore', this.highscore);
+    }
+  }
   // Add Random Tile on the board
   _addRandomTile() {
     const emptyCells = [];
@@ -47,8 +54,8 @@ class Game {
       return;
     }
 
-    const [row, col]
-      = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+    const [row, col] =
+      emptyCells[Math.floor(Math.random() * emptyCells.length)];
     const newValue = Math.random() < 0.9 ? 2 : 4;
 
     this.board[row][col] = newValue;
@@ -62,6 +69,7 @@ class Game {
         nonZero[i] *= 2;
         nonZero[i + 1] = 0;
         this.score += nonZero[i];
+        this._updateHighscore();
       }
     }
 
@@ -78,76 +86,70 @@ class Game {
     return a.length === b.length && a.every((v, i) => v === b[i]);
   }
   // Transpose Matrix
-  transpose(matrix) {
+  transpose(matrix = this.board) {
     return matrix[0].map((_, colIndex) => matrix.map((row) => row[colIndex]));
   }
-  moveLeft() {
-    const oldBoard = this.board.map((row) => [...row]);
-    const newBoard = this.board.map((row) => this._slideAndMergeRow(row));
+  move(direction) {
+    const oldBoard = this.getState();
+    let newBoard;
 
-    const hasChanged = oldBoard.some((row, i) => {
-      return !this.arraysEqual(row, newBoard[i]);
-    });
+    switch (direction) {
+      case 'left':
+        newBoard = this._moveLeftInternal();
+        break;
 
-    if (hasChanged) {
+      case 'right':
+        newBoard = this._reverseBoard();
+        newBoard = this._moveLeftInternal(newBoard);
+        newBoard = this._reverseBoard(newBoard);
+        break;
+
+      case 'up':
+        newBoard = this.transpose();
+        newBoard = this._moveLeftInternal(newBoard);
+        newBoard = this.transpose(newBoard);
+        break;
+
+      case 'down':
+        newBoard = this.transpose();
+        newBoard = this._reverseBoard(newBoard);
+        newBoard = this._moveLeftInternal(newBoard);
+        newBoard = this._reverseBoard(newBoard);
+        newBoard = this.transpose(newBoard);
+        break;
+    }
+
+    if (!this._boardsEqual(oldBoard, newBoard)) {
       this.board = newBoard;
       this._addRandomTile();
     }
 
     this.checkGameStatus();
+  }
+
+  moveLeft() {
+    this.move('left');
   }
   moveRight() {
-    const oldBoard = this.board.map((row) => [...row]);
-    const newBoard = this.board.map((row) => {
-      return this._slideAndMergeRow([...row].reverse()).reverse();
-    });
-
-    const hasChanged = oldBoard.some((row, i) => {
-      return !this.arraysEqual(row, newBoard[i]);
-    });
-
-    if (hasChanged) {
-      this.board = newBoard;
-      this._addRandomTile();
-    }
-
-    this.checkGameStatus();
+    this.move('right');
   }
   moveUp() {
-    const oldBoard = this.board.map((row) => [...row]);
-    const transposed = this.transpose(this.board);
-    const moved = transposed.map((row) => this._slideAndMergeRow(row));
-    const newBoard = this.transpose(moved);
-
-    const hasChanged = oldBoard.some((row, i) => {
-      return !this.arraysEqual(row, newBoard[i]);
-    });
-
-    if (hasChanged) {
-      this.board = newBoard;
-      this._addRandomTile();
-    }
-
-    this.checkGameStatus();
+    this.move('up');
   }
   moveDown() {
-    const oldBoard = this.board.map((row) => [...row]);
-    const transposed = this.transpose(this.board);
-    const moved = transposed.map((row) => {
-      return this._slideAndMergeRow([...row].reverse()).reverse();
-    });
-    const newBoard = this.transpose(moved);
+    this.move('down');
+  }
 
-    const hasChanged = oldBoard.some((row, i) => {
-      return !this.arraysEqual(row, newBoard[i]);
-    });
+  _moveLeftInternal(board = this.board) {
+    return board.map((row) => this._slideAndMergeRow(row));
+  }
 
-    if (hasChanged) {
-      this.board = newBoard;
-      this._addRandomTile();
-    }
+  _reverseBoard(board = this.board) {
+    return board.map((row) => [...row].reverse());
+  }
 
-    this.checkGameStatus();
+  _boardsEqual(a, b) {
+    return a.every((row, i) => this.arraysEqual(row, b[i]));
   }
 
   /**
@@ -162,6 +164,9 @@ class Game {
    */
   getState() {
     return this.board.map((row) => row.slice());
+  }
+  getHighscore() {
+    return this.highscore;
   }
 
   /**
@@ -221,8 +226,8 @@ class Game {
         const current = this.board[i][j];
 
         if (
-          (i < 3 && this.board[i + 1][j] === current)
-          || (j < 3 && this.board[i][j + 1] === current)
+          (i < 3 && this.board[i + 1][j] === current) ||
+          (j < 3 && this.board[i][j + 1] === current)
         ) {
           return false;
         }
