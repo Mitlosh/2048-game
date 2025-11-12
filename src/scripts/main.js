@@ -97,18 +97,28 @@ function handleSwipe(dx, dy) {
 }
 
 // Touch
-boardEl.addEventListener('touchstart', (e) => {
-  const touch = e.touches[0];
-  startX = touch.clientX;
-  startY = touch.clientY;
-});
+boardEl.addEventListener(
+  'touchstart',
+  (e) => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    startX = touch.clientX;
+    startY = touch.clientY;
+  },
+  { passive: false },
+);
 
-boardEl.addEventListener('touchend', (e) => {
-  const touch = e.changedTouches[0];
-  endX = touch.clientX;
-  endY = touch.clientY;
-  handleSwipe(endX - startX, endY - startY);
-});
+boardEl.addEventListener(
+  'touchend',
+  (e) => {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    endX = touch.clientX;
+    endY = touch.clientY;
+    handleSwipe(endX - startX, endY - startY);
+  },
+  { passive: false },
+);
 
 // Mouse
 let isMouseDown = false;
